@@ -616,7 +616,7 @@ def createAlias(obj, collectionName, aliasNames, alter, timeout):
             result = obj.createCollectionAliasList(collectionName, aliasNames,
                                                    timeout)
     except ConnectException as ce:
-        click.echo("Error!\n{}".format(str(ce)))
+        click.echo(f"Error!\n{str(ce)}")
     else:
         if len(result) == len(aliasNames):
             click.echo(
@@ -674,9 +674,9 @@ def createCollection(obj, collectionName, primaryField, autoId, description,
         obj.checkConnection()
         validateCollectionParameter(collectionName, primaryField, fields)
     except ParameterException as pe:
-        click.echo("Error!\n{}".format(str(pe)))
+        click.echo(f"Error!\n{str(pe)}")
     except ConnectException as ce:
-        click.echo("Error!\n{}".format(str(ce)))
+        click.echo(f"Error!\n{str(ce)}")
     else:
         click.echo(
             obj.createCollection(collectionName, primaryField, autoId,
@@ -763,9 +763,9 @@ def createIndex(obj):
         timeout = inputTimeout if inputTimeout else None
         validateIndexParameter(indexType, metricType, params)
     except ParameterException as pe:
-        click.echo("Error!\n{}".format(str(pe)))
+        click.echo(f"Error!\n{str(pe)}")
     except ConnectException as ce:
-        click.echo("Error!\n{}".format(str(ce)))
+        click.echo(f"Error!\n{str(ce)}")
     else:
         click.echo(
             obj.createIndex(collectionName, fieldName, indexName, indexType,
@@ -835,7 +835,7 @@ def deleteAlias(obj, aliasName, timeout):
         obj.checkConnection()
         obj.dropCollectionAlias(aliasName, timeout)
     except ConnectException as ce:
-        click.echo("Error!\n{}".format(str(ce)))
+        click.echo(f"Error!\n{str(ce)}")
     else:
         click.echo(f"Drop alias '{aliasName}' successfully.")
 
@@ -877,8 +877,9 @@ def deleteCollection(obj, collectionName, timeout):
         click.echo(f"Error occurred when get collection by name!\n{str(e)}")
     else:
         result = obj.dropCollection(collectionName, timeout)
-        click.echo("Drop collection successfully!"
-                   ) if not result else click.echo("Drop collection failed!")
+        click.echo("Drop collection failed!") if result else click.echo(
+            "Drop collection successfully!"
+        )
 
 
 @deleteObject.command("partition")
@@ -917,8 +918,9 @@ def deletePartition(obj, collectionName, partition, timeout):
         click.echo(f"Error occurred when get collection by name!\n{str(e)}")
     else:
         result = obj.dropPartition(collectionName, partition, timeout)
-        click.echo("Drop partition successfully!"
-                   ) if not result else click.echo("Drop partition failed!")
+        click.echo("Drop partition failed!") if result else click.echo(
+            "Drop partition successfully!"
+        )
 
 
 @deleteObject.command("index")
@@ -1141,19 +1143,18 @@ def search(obj):
     )
     indexDetails = obj._list_index(collectionName)
     hasIndex = not not indexDetails
+    params = []
     if indexDetails:
         index_type = indexDetails["index_type"]
         search_parameters = IndexTypesMap[index_type]["search_parameters"]
         metric_type = indexDetails["metric_type"]
         click.echo(f"Metric type: {metric_type}")
         metricType = metric_type
-        params = []
         for parameter in search_parameters:
             paramInput = click.prompt(f"Search parameter {parameter}'s value")
             params += [f"{parameter}:{paramInput}"]
     else:
         metricType = ""
-        params = []
     roundDecimal = click.prompt(
         "The specified number of decimal places of returned distance",
         default=-1,
@@ -1204,9 +1205,9 @@ def search(obj):
         )
         obj.checkConnection()
     except ParameterException as pe:
-        click.echo("Error!\n{}".format(str(pe)))
+        click.echo(f"Error!\n{str(pe)}")
     except ConnectException as ce:
-        click.echo("Error!\n{}".format(str(ce)))
+        click.echo(f"Error!\n{str(ce)}")
     else:
         if export:
             results = obj.search(collectionName,
@@ -1306,9 +1307,9 @@ def query(obj):
         )
         obj.checkConnection()
     except ParameterException as pe:
-        click.echo("Error!\n{}".format(str(pe)))
+        click.echo(f"Error!\n{str(pe)}")
     except ConnectException as ce:
-        click.echo("Error!\n{}".format(str(ce)))
+        click.echo(f"Error!\n{str(ce)}")
     else:
         click.echo(obj.query(collectionName, queryParameters))
 
@@ -1397,7 +1398,7 @@ def importData(obj, collectionName, partitionName, timeout, path):
         data = result["data"]
         result = obj.importData(collectionName, data, partitionName, timeout)
     except Exception as e:
-        click.echo("Error!\n{}".format(str(e)))
+        click.echo(f"Error!\n{str(e)}")
     else:
         click.echo(f"\nInserted successfully.\n")
         click.echo(result)
@@ -1554,9 +1555,9 @@ def calcDistance(obj):
             calcParams["timeout"],
         )
     except ParameterException as pe:
-        click.echo("Error!\n{}".format(str(pe)))
+        click.echo(f"Error!\n{str(pe)}")
     except ConnectException as ce:
-        click.echo("Error!\n{}".format(str(ce)))
+        click.echo(f"Error!\n{str(ce)}")
     else:
         click.echo(
             "\n======\nReturn type:\n" +

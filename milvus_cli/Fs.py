@@ -6,8 +6,7 @@ def readCsvFile(path="", withCol=True):
     import re
 
     pattern = re.compile(".+\..+\/.*")
-    isUrl = pattern.match(path)
-    if isUrl:
+    if isUrl := pattern.match(path):
         return readCsvFileFromUrl(path, withCol)
     return readCsvFileFromLocal(path, withCol)
 
@@ -18,7 +17,7 @@ def readCsvFileFromLocal(path="", withCol=True):
     import click
 
     click.echo("Reading file from local path.")
-    if not path or not path[-4:] == ".csv":
+    if not path or path[-4:] != ".csv":
         raise ParameterException("Path is empty or target file is not .csv")
     fileSize = os.stat(path).st_size
     if fileSize >= 512000000:
@@ -76,10 +75,9 @@ def handleCsvFile(result, csv_reader, withCol):
         for row in bar:
             if withCol and line_count == 0:
                 result["columns"] = row
-                line_count += 1
             else:
                 formatRowForData(row, result["data"])
-                line_count += 1
+            line_count += 1
     click.echo(f"""Column names are {result['columns']}""")
     click.echo(f"Processed {line_count} lines.")
 
@@ -99,7 +97,7 @@ def formatRowForData(row=[], data=[]):
 
 def writeCsvFile(path, rows, headers=[]):
     if not path:
-        raise ParameterException(f"Path should not be empty")
+        raise ParameterException("Path should not be empty")
     from csv import writer
     import click
 

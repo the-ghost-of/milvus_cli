@@ -119,22 +119,16 @@ class PyOrm(object):
         except Exception as e:
             return {}
         else:
-            details = {
+            return {
                 "field_name": result.field_name,
                 "index_type": result.params["index_type"],
                 "metric_type": result.params["metric_type"],
                 "params": result.params["params"],
             }
-            # for p in result.params['params']:
-            #     details[p] = result.params['params'][p]
-            return details
 
     def listCollections(self, timeout=None):
-        result = []
         collectionNames = self._list_collection_names(timeout)
-        for name in collectionNames:
-            result.append([name])
-
+        result = [[name] for name in collectionNames]
         return tabulate(
             result,
             headers=["Collection Name"],
@@ -211,9 +205,7 @@ class PyOrm(object):
         targetPartition = self.getTargetPartition(collectionName,
                                                   partitionName)
         targetPartition.release()
-        result = self.showCollectionLoadingProgress(collectionName,
-                                                    [partitionName])
-        return result
+        return self.showCollectionLoadingProgress(collectionName, [partitionName])
 
     def releasePartitions(self, collectionName, partitionNameList):
         result = []
@@ -232,9 +224,7 @@ class PyOrm(object):
         targetPartition = self.getTargetPartition(collectionName,
                                                   partitionName)
         targetPartition.load()
-        result = self.showCollectionLoadingProgress(collectionName,
-                                                    [partitionName])
-        return result
+        return self.showCollectionLoadingProgress(collectionName, [partitionName])
 
     def loadPartitions(self, collectionName, partitionNameList):
         result = []
@@ -287,7 +277,6 @@ class PyOrm(object):
             target = collection or self.getTargetCollection(collectionName)
         except Exception as e:
             return "Error!\nPlease check your input collection name."
-        rows = []
         schema = target.schema
         partitions = target.partitions
         indexes = target.indexes
@@ -300,42 +289,45 @@ class PyOrm(object):
             _dim = _params.get("dim")
             _params_desc = f"dim: {_dim}" if _dim else ""
             fieldSchemaDetails += f"\n - {_name} {_type} {_params_desc} {_desc}"
-        schemaDetails = """Description: {}\n\nAuto ID: {}\n\nFields(* is the primary field):{}""".format(
-            schema.description, schema.auto_id, fieldSchemaDetails)
+        schemaDetails = f"""Description: {schema.description}\n\nAuto ID: {schema.auto_id}\n\nFields(* is the primary field):{fieldSchemaDetails}"""
         partitionDetails = "  - " + \
-            "\n- ".join(map(lambda x: x.name, partitions))
+                "\n- ".join(map(lambda x: x.name, partitions))
         indexesDetails = "  - " + \
-            "\n- ".join(map(lambda x: x.field_name, indexes))
-        rows.append(["Name", target.name])
-        rows.append(["Description", target.description])
-        rows.append(["Is Empty", target.is_empty])
-        rows.append(["Entities", target.num_entities])
-        rows.append(["Primary Field", target.primary_field.name])
-        rows.append(["Schema", schemaDetails])
-        rows.append(["Partitions", partitionDetails])
-        rows.append(["Indexes", indexesDetails])
+                "\n- ".join(map(lambda x: x.field_name, indexes))
+        rows = [
+            ["Name", target.name],
+            ["Description", target.description],
+            ["Is Empty", target.is_empty],
+            ["Entities", target.num_entities],
+            ["Primary Field", target.primary_field.name],
+            ["Schema", schemaDetails],
+            ["Partitions", partitionDetails],
+            ["Indexes", indexesDetails],
+        ]
         return tabulate(rows, tablefmt="grid")
 
     def getPartitionDetails(self, collection, partitionName=""):
         partition = collection.partition(partitionName)
         if not partition:
             return "No such partition!"
-        rows = []
-        rows.append(["Partition Name", partition.name])
-        rows.append(["Description", partition.description])
-        rows.append(["Is empty", partition.is_empty])
-        rows.append(["Number of Entities", partition.num_entities])
+        rows = [
+            ["Partition Name", partition.name],
+            ["Description", partition.description],
+            ["Is empty", partition.is_empty],
+            ["Number of Entities", partition.num_entities],
+        ]
         return tabulate(rows, tablefmt="grid")
 
     def getIndexDetails(self, collection, indexName):
         index = collection.index(index_name=indexName)
         if not index:
             return "No index!"
-        rows = []
-        rows.append(["Corresponding Collection", index.collection_name])
-        rows.append(["Corresponding Field", index.field_name])
-        rows.append(["Index Type", index.params["index_type"]])
-        rows.append(["Metric Type", index.params["metric_type"]])
+        rows = [
+            ["Corresponding Collection", index.collection_name],
+            ["Corresponding Field", index.field_name],
+            ["Index Type", index.params["index_type"]],
+            ["Metric Type", index.params["metric_type"]],
+        ]
         params = index.params["params"]
         paramsDetails = "\n- ".join(
             map(lambda k: f"{k[0]}: {k[1]}", params.items()))
@@ -347,9 +339,9 @@ class PyOrm(object):
         from pymilvus import Collection, DataType, FieldSchema, CollectionSchema
 
         fieldList = []
+        isVector = False
         for field in fields:
             [fieldName, fieldType, fieldData] = field.split(":")
-            isVector = False
             if fieldType in ["BINARY_VECTOR", "FLOAT_VECTOR"]:
                 fieldList.append(
                     FieldSchema(name=fieldName,
@@ -424,21 +416,19 @@ class PyOrm(object):
         collection = self.getTargetCollection(collectionName)
         collection.load()
         res = collection.search(**searchParameters)
-        if not prettierFormat:
-            return res
-        # hits = res[0]
-        results = []
-        for hits in res:
-            results += [
+        return (
+            [
                 tabulate(
                     map(lambda x: [x.id, x.distance, x.score], hits),
                     headers=["Index", "ID", "Distance", "Score"],
                     tablefmt="grid",
                     showindex=True,
                 )
+                for hits in res
             ]
-        # return tabulate(map(lambda x: [x.id, x.distance], hits), headers=['Index', 'ID', 'Distance'], tablefmt='grid', showindex=True)
-        return results
+            if prettierFormat
+            else res
+        )
 
     def query(self, collectionName, queryParameters):
         collection = self.getTargetCollection(collectionName)
@@ -446,7 +436,7 @@ class PyOrm(object):
         # return f"- Query results: {res}"
         if not len(res):
             return f"- Query results: {res}"
-        headers = [i for i in res[0]]
+        headers = list(res[0])
         return tabulate(
             [[_[i] for i in _] for _ in res],
             headers=headers,
@@ -471,10 +461,11 @@ class PyOrm(object):
                                             partitionName, timeout)
         insert_count = result.insert_count
         timestamp = result.timestamp
-        prettierResult = []
-        prettierResult.append(["Total insert entities: ", insert_count])
-        prettierResult.append(["Total collection entities: ", entitiesNum])
-        prettierResult.append(["Milvus timestamp: ", timestamp])
+        prettierResult = [
+            ["Total insert entities: ", insert_count],
+            ["Total collection entities: ", entitiesNum],
+            ["Milvus timestamp: ", timestamp],
+        ]
         return tabulate(prettierResult)
 
     def calcDistance(self,
@@ -484,12 +475,9 @@ class PyOrm(object):
                      timeout=None):
         from pymilvus import utility
 
-        result = utility.calc_distance(vectors_left,
-                                       vectors_right,
-                                       params,
-                                       timeout,
-                                       using=self.alias)
-        return result
+        return utility.calc_distance(
+            vectors_left, vectors_right, params, timeout, using=self.alias
+        )
 
     def deleteEntities(self,
                        expr,
@@ -497,10 +485,9 @@ class PyOrm(object):
                        partition_name=None,
                        timeout=None):
         collection = self.getTargetCollection(collectionName)
-        result = collection.delete(expr,
-                                   partition_name=partition_name,
-                                   timeout=timeout)
-        return result
+        return collection.delete(
+            expr, partition_name=partition_name, timeout=timeout
+        )
 
     def getQuerySegmentInfo(self,
                             collectionName,
@@ -530,16 +517,14 @@ class PyOrm(object):
         from pymilvus import utility
 
         collection = self.getTargetCollection(collectionName)
-        result = utility.create_alias(collection.name,
-                                      collectionAliasName,
-                                      timeout=timeout)
-        return result
+        return utility.create_alias(
+            collection.name, collectionAliasName, timeout=timeout
+        )
 
     def dropCollectionAlias(self, collectionAliasName="", timeout=None):
         from pymilvus import utility
 
-        result = utility.drop_alias(collectionAliasName, timeout=timeout)
-        return result
+        return utility.drop_alias(collectionAliasName, timeout=timeout)
 
     def alterCollectionAlias(self,
                              collectionName,
@@ -548,10 +533,9 @@ class PyOrm(object):
         from pymilvus import utility
 
         collection = self.getTargetCollection(collectionName)
-        result = utility.alter_alias(collection.name,
-                                     collectionAliasName,
-                                     timeout=timeout)
-        return result
+        return utility.alter_alias(
+            collection.name, collectionAliasName, timeout=timeout
+        )
 
     def createCollectionAliasList(self,
                                   collectionName,
@@ -587,8 +571,7 @@ class PyOrm(object):
         from pymilvus import utility
 
         collection = self.getTargetCollection(collectionName)
-        result = utility.list_aliases(collection.name, timeout=timeout)
-        return result
+        return utility.list_aliases(collection.name, timeout=timeout)
 
     def loadBalance(self,
                     src_node_id,
@@ -597,29 +580,24 @@ class PyOrm(object):
                     timeout=None):
         from pymilvus import utility
 
-        res = utility.load_balance(src_node_id,
-                                   dst_node_ids,
-                                   sealed_segment_ids,
-                                   timeout=timeout)
-        return res
+        return utility.load_balance(
+            src_node_id, dst_node_ids, sealed_segment_ids, timeout=timeout
+        )
 
     def mkts_from_hybridts(self, hybridts, milliseconds=0.0):
         from pymilvus import utility
 
-        ts_new = utility.mkts_from_hybridts(hybridts, milliseconds)
-        return ts_new
+        return utility.mkts_from_hybridts(hybridts, milliseconds)
 
     def mkts_from_unixtime(self, epoch, milliseconds=0.0):
         from pymilvus import utility
 
-        ts_new = utility.mkts_from_unixtime(epoch, milliseconds)
-        return ts_new
+        return utility.mkts_from_unixtime(epoch, milliseconds)
 
     def hybridts_to_unixtime(self, hybridts):
         from pymilvus import utility
 
-        ts_new = utility.hybridts_to_unixtime(hybridts)
-        return ts_new
+        return utility.hybridts_to_unixtime(hybridts)
 
     # pymilvus.utility.mkts_from_datetime(d_time, milliseconds=0.0, delta=None)
     # pymilvus.utility.hybridts_to_datetime(hybridts, tz=None)
@@ -638,8 +616,7 @@ class PyOrm(object):
 
     def listCredUsers(self):
         from pymilvus import utility
-        users = utility.list_usernames(self.alias)
-        return users
+        return utility.list_usernames(self.alias)
 
     def createCredUser(self, username=None, password=None):
         from pymilvus import utility
@@ -699,7 +676,7 @@ class Completer(object):
         for cmd in cmdDict:
             sub_cmds = cmdDict[cmd]
             complete_example = self.makeComplete(cmd, sub_cmds)
-            setattr(self, "complete_%s" % cmd, complete_example)
+            setattr(self, f"complete_{cmd}", complete_example)
 
     def makeComplete(self, cmd, sub_cmds):
 
@@ -707,7 +684,7 @@ class Completer(object):
             f"Completions for the {cmd} command."
             if not args:
                 return self._complete_path(".")
-            if len(args) <= 1 and not cmd == "import":
+            if len(args) <= 1 and cmd != "import":
                 return self._complete_2nd_level(sub_cmds, args[-1])
             return self._complete_path(args[-1])
 
@@ -740,15 +717,13 @@ class Completer(object):
         if os.path.isdir(path):
             return [os.path.join(path, p) for p in self._listdir(path)]
         # exact file match terminates this completion
-        return [path + " "]
+        return [f"{path} "]
 
     def _complete_2nd_level(self, SUB_COMMANDS=[], cmd=None):
         if not cmd:
-            return [c + " " for c in SUB_COMMANDS]
+            return [f"{c} " for c in SUB_COMMANDS]
         res = [c for c in SUB_COMMANDS if c.startswith(cmd)]
-        if len(res) > 1 or not (cmd in SUB_COMMANDS):
-            return res
-        return [cmd + " "]
+        return res if len(res) > 1 or cmd not in SUB_COMMANDS else [f"{cmd} "]
 
     # def complete_create(self, args):
     #     "Completions for the 'create' command."
@@ -765,20 +740,18 @@ class Completer(object):
         line = readline.get_line_buffer().split()
         # show all commands
         if not line:
-            return [c + " " for c in self.COMMANDS][state]
+            return [f"{c} " for c in self.COMMANDS][state]
         # account for last argument ending in a space
         if self.RE_SPACE.match(buffer):
             line.append("")
         # resolve command to the implementation function
         cmd = line[0].strip()
         if cmd in self.COMMANDS:
-            impl = getattr(self, "complete_%s" % cmd)
-            args = line[1:]
-            if args:
+            impl = getattr(self, f"complete_{cmd}")
+            if args := line[1:]:
                 return (impl(args) + [None])[state]
-            return [cmd + " "][state]
-        results = [c + " "
-                   for c in self.COMMANDS if c.startswith(cmd)] + [None]
+            return [f"{cmd} "][state]
+        results = ([f"{c} " for c in self.COMMANDS if c.startswith(cmd)] + [None])
         return results[state]
 
 
